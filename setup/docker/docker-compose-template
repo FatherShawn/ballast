@@ -24,7 +24,7 @@ services:
     networks:
       - internal
     environment:
-      XDEBUG_HOST: {host_ip}
+      XDEBUG_HOST: host.docker.internal
   web:
     image: digitalpulp/nginx:stable-alpine-1.0.1
     # image: digitalpulp/apache

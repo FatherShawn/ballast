@@ -14,22 +14,12 @@ use Ballast\Utilities\Config;
  */
 class RemoteRebuildCommands extends Tasks {
 
-  use DockerMachineTrait;
-
   /**
    * Config Utility (singleton).
    *
    * @var \Ballast\Utilities\Config
    */
   protected $config;
-
-
-  /**
-   * Contains docker config flags.
-   *
-   * @var string
-   */
-  protected $dockerFlags;
 
   /**
    * Rebuilds the local site from a remote server.
@@ -84,10 +74,8 @@ class RemoteRebuildCommands extends Tasks {
    */
   protected function setInitialConditions() {
     $this->setConfig();
-    $this->dockerFlags = '';
     switch (php_uname('s')) {
       case 'Darwin':
-        $this->dockerFlags = $this->getDockerMachineConfig();
         break;
 
       default:
@@ -155,8 +143,6 @@ class RemoteRebuildCommands extends Tasks {
     );
     $dumpRemote->addTask(
       $this->taskFilesystemStack()->remove("$root/database.sql.gz")
-        ->printMetadata(FALSE)
-        ->printOutput(FALSE)
     );
     $result = $dumpRemote->setVerbosityThreshold(VerbosityThresholdInterface::VERBOSITY_DEBUG)
       ->run();
@@ -171,17 +157,17 @@ class RemoteRebuildCommands extends Tasks {
     $this->io()->text('Loading remote dump to local database.');
     $loadRemote = $this->collectionBuilder();
     $loadRemote->addTask(
-      $this->taskExec("docker-compose $this->dockerFlags exec -T cli drush -y sql-drop || true")
+      $this->taskExec("docker-compose exec -T cli drush -y sql-drop || true")
         ->printMetadata(FALSE)
         ->printOutput(FALSE)
     );
     $loadRemote->addTask(
-      $this->taskExec("docker-compose $this->dockerFlags exec -T cli drush sql-sync -y @self @self --no-dump --source-dump=/var/www/target.sql")
+      $this->taskExec("docker-compose exec -T cli drush sql-sync -y @self @self --no-dump --source-dump=/var/www/target.sql")
         ->printMetadata(FALSE)
         ->printOutput(FALSE)
     );
     $loadRemote->addTask(
-      $this->taskExec("docker-compose $this->dockerFlags exec -T cli drush sqlsan -y --sanitize-password=dp --sanitize-email=user-%uid@example.com")
+      $this->taskExec("docker-compose exec -T cli drush sqlsan -y --sanitize-password=dp --sanitize-email=user-%uid@example.com")
         ->printMetadata(FALSE)
         ->printOutput(FALSE)
     );
@@ -205,25 +191,25 @@ class RemoteRebuildCommands extends Tasks {
   protected function getUpdate() {
     $this->io()->newLine();
     $this->io()->text('Running database updates and importing config.');
-    $updateResult = $this->taskExec("docker-compose $this->dockerFlags exec cli drush -y updb")
+    $updateResult = $this->taskExec("docker-compose exec cli drush -y updb")
       ->printMetadata(FALSE)
       ->setVerbosityThreshold(VerbosityThresholdInterface::VERBOSITY_NORMAL)
       ->run();
     $this->io()->newLine();
     $this->io()
       ->text('Rebuilding cache before importing config to enable any overrides.');
-    $this->taskExec("docker-compose $this->dockerFlags exec -T cli drush -y cr")
+    $this->taskExec("docker-compose exec -T cli drush -y cr")
       ->printMetadata(FALSE)
       ->printOutput(FALSE)
       ->setVerbosityThreshold(VerbosityThresholdInterface::VERBOSITY_DEBUG)
       ->run();
-    $updateResult->merge($this->taskExec("docker-compose $this->dockerFlags exec cli drush -y cim")
+    $updateResult->merge($this->taskExec("docker-compose exec cli drush -y cim")
       ->printMetadata(FALSE)
       ->setVerbosityThreshold(VerbosityThresholdInterface::VERBOSITY_NORMAL)
       ->run());
     $this->io()->newLine();
     $this->io()->text('Rebuilding cache after importing config.');
-    $this->taskExec("docker-compose $this->dockerFlags exec -T cli drush -y cr")
+    $this->taskExec("docker-compose exec -T cli drush -y cr")
       ->printMetadata(FALSE)
       ->printOutput(FALSE)
       ->setVerbosityThreshold(VerbosityThresholdInterface::VERBOSITY_DEBUG)
@@ -242,7 +228,7 @@ class RemoteRebuildCommands extends Tasks {
   protected function getRebuiltTheme() {
     $this->io()->newLine();
     $this->io()->text('Building the theme.');
-    $gulpResult = $this->taskExec("docker-compose $this->dockerFlags exec -T front-end node_modules/.bin/gulp build")
+    $gulpResult = $this->taskExec("docker-compose exec -T front-end node_modules/.bin/gulp build")
       ->setVerbosityThreshold(VerbosityThresholdInterface::VERBOSITY_DEBUG)
       ->run();
     if ($gulpResult instanceof Result && $gulpResult->wasSuccessful()) {

@@ -104,7 +104,7 @@ class SetupCommands extends Tasks {
     $collection->addTask(
       $this->taskFilesystemStack()
         ->copy("$project/setup/drupal/settings.local.php",
-          "$drupal/sites/default/settings.local.php", TRUE)
+          "$drupal/sites/default/settings.local.php", FALSE)
     )->rollback(
       $this->taskFilesystemStack()
         ->remove("$drupal/sites/default/settings.local.php")
@@ -192,7 +192,18 @@ class SetupCommands extends Tasks {
    */
   protected function setMacRequirements() {
     $this->setConfig();
+    $home = getenv('HOME');
     $this->io()->title('Mac Setup for Ballast');
+    if (!file_exists("$home/.docker/machine/machines/dp-docker")) {
+      $removeDockerMachine = $this->io()->confirm('Ballast 1.0 docker machine detected.  Remove and upgrade to Ballast 1.1', FALSE);
+      if ($removeDockerMachine) {
+        $this->io()->warning('All sites will have to be re-installed, or rebuilt from a remote.  The upgrade will destroy all persistent container data including databases.');
+        $confirmed = $this->io()->confirm('I understand and am ready to upgrade.', FALSE);
+        if ($confirmed) {
+          $this->setDockerMachineRemoved();
+        }
+      }
+    }
     $result = $this->taskFilesystemStack()
       ->copy($this->config->getProjectRoot() . '/setup/ahoy/mac.ahoy.yml', $this->config->getProjectRoot() . '/.ahoy.yml')
       ->setVerbosityThreshold(VerbosityThresholdInterface::VERBOSITY_DEBUG)
@@ -392,28 +403,13 @@ class SetupCommands extends Tasks {
             'tap' => 'ahoy-cli/tap',
             'cask' => FALSE,
           ],
-          'virtualbox' => [
-            'name' => 'virtualbox',
+          'docker' => [
+            'name' => 'Docker for Mac',
             'tap' => '',
             'cask' => TRUE,
           ],
-          'docker' => [
-            'name' => 'Docker',
-            'tap' => '',
-            'cask' => FALSE,
-          ],
-          'docker-compose' => [
-            'name' => 'Docker Compose',
-            'tap' => '',
-            'cask' => FALSE,
-          ],
           'pre-commit' => [
             'name' => 'pre-commit by Yelp',
-            'tap' => '',
-            'cask' => FALSE,
-          ],
-          'docker-machine-nfs' => [
-            'name' => 'Docker Machine NFS',
             'tap' => '',
             'cask' => FALSE,
           ],
@@ -430,6 +426,40 @@ class SetupCommands extends Tasks {
 
       default:
         return [];
+    }
+  }
+
+  /**
+   * Helper function to remove outdated docker-machine.
+   */
+  protected function setDockerMachineRemoved() {
+    $home = getenv('HOME');
+    $directory = "$home/.docker/machine/machines/dp-docker";
+    $remove = [
+      'docker',
+      'docker-compose',
+      'docker-machine',
+    ];
+    $brewed = $this->getBrewedComponents();
+    $removeList = [];
+    foreach ($remove as $package) {
+      if (isset($brewed[$package])) {
+        // Installed.
+        $removeList[] = $package;
+      }
+    }
+    $removeList = implode(' ', $removeList);
+    $this->io()->text("The following packages need to be unistalled: $removeList");
+    $removed = $this->taskExec("brew uninstall $removeList")
+      ->printOutput(FALSE)
+      ->printMetadata(FALSE)
+      ->run();
+    if ($removed instanceof Result && $removed->wasSuccessful()) {
+      $this->io()->success('Packages are uninstalled.');
+    }
+    $deleteMachine = $this->taskDeleteDir($directory)->run();
+    if ($deleteMachine instanceof Result && $deleteMachine->wasSuccessful()) {
+      $this->io()->success('dp-docker machine data is removed.');
     }
   }
 
