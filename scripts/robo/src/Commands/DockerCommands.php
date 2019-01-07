@@ -393,30 +393,39 @@ class DockerCommands extends Tasks {
     $root = $this->config->getProjectRoot();
     $collection = $this->collectionBuilder();
     // Configure global nfs options.
+    $nfsSetting = 'nfs.server.mount.require_resv_port = 0';
     if (file_exists('/etc/nfs.conf')) {
       $collection->addTask(
         $this->taskFilesystemStack()
           ->copy('/etc/nfs.conf', "$root/setup/docker/nfs.conf")
       );
-      $collection->addTask(
-        $this->taskWriteToFile("$root/setup/docker/nfs.conf")
-          ->appendUnlessMatches('/nfs\.server\.mount\.require_resv_port\s=\s0/', "\nnfs.server.mount.require_resv_port = 0")
-      );
     }
     else {
       $collection->addTask(
-        $this->taskWriteToFile("$root/setup/docker/nfs.conf")
-          ->line('#')
-          ->line('# nfs.conf: the NFS configuration file')
-          ->line('#')
-          ->line('nfs.server.mount.require_resv_port = 0')
+        $this->taskFilesystemStack()
+          ->touch("$root/setup/docker/nfs.conf")
       );
     }
-    $collection->addTask(
-      $this->taskExecStack()
-        ->exec("sudo mv $root/setup/docker/nfs.conf /etc/nfs.conf")
-        ->exec('sudo chown root:wheel /etc/nfs.conf')
-    );
+    if (strpos(file_get_contents("$root/setup/docker/nfs.conf"), $nfsSetting) === FALSE) {
+      $collection->addTask(
+        $this->taskWriteToFile("$root/setup/docker/nfs.conf")
+          ->append(TRUE)
+          ->line('# ballast-setup-start')
+          ->line($nfsSetting)
+          ->line('# ballast-setup-end')
+      );
+      $collection->addTask(
+        $this->taskExecStack()
+          ->exec("sudo mv $root/setup/docker/nfs.conf /etc/nfs.conf")
+          ->exec('sudo chown root:wheel /etc/nfs.conf')
+      );
+    }
+    else {
+      $this->io()->note('Ballast NFS setting is already present in /etc/nfs.conf');
+      $collection->addTask(
+        $this->taskFilesystemStack()->remove("$root/setup/docker/nfs.conf")
+      );
+    }
     // Export the given folder/directory.
     $user = getmyuid();
     $group = getmygid();
