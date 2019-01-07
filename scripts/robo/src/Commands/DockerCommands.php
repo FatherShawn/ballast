@@ -98,7 +98,7 @@ class DockerCommands extends Tasks {
       case 'Darwin':
         if (!file_exists($this->config->getDrupalRoot() . '/core')) {
           $this->io()
-            ->error('You must run `composer install` followed by `ahoy harbor` before you run this Drupal site.');
+            ->error('You must run `composer install` before you run this Drupal site.');
         }
         else {
           $this->setMacBoot();
@@ -353,6 +353,23 @@ class DockerCommands extends Tasks {
    *   Boolean value if we can get a docker response.
    */
   public function isDockerRunning() {
+    $isInstalled = $this->taskExec('which -s docker')
+      ->printOutput(FALSE)
+      ->printMetadata(FALSE)
+      ->run();
+    if (!$isInstalled->wasSuccessful()) {
+      $justInstalled = $this->io()->confirm('The docker command was not found.  Was Docker for Mac just installed');
+      if ($justInstalled) {
+        $installed = $this->io()->confirm('Docker for Mac needs to be launched the first time from the Finder. Enter "yes" once you have launched Docker for Mac for the first time', FALSE);
+        if ($installed) {
+          $this->setDnsProxyMac();
+        }
+      }
+      else {
+        $this->io()->error('The docker command could not be found.');
+        return $isInstalled->wasSuccessful();
+      }
+    }
     $result = $this->taskExec('docker ps')->run();
     return $result->wasSuccessful();
   }
@@ -392,21 +409,28 @@ class DockerCommands extends Tasks {
     $this->setConfig();
     $root = $this->config->getProjectRoot();
     $collection = $this->collectionBuilder();
+    $nfsConfigPresent = FALSE;
     // Configure global nfs options.
     $nfsSetting = 'nfs.server.mount.require_resv_port = 0';
-    if (file_exists('/etc/nfs.conf')) {
-      $collection->addTask(
-        $this->taskFilesystemStack()
-          ->copy('/etc/nfs.conf', "$root/setup/docker/nfs.conf")
-      );
+    $nfsConfigExists = file_exists('/etc/nfs.conf');
+    if ($nfsConfigExists) {
+      $nfsConfigPresent = !strpos(file_get_contents("/etc/nfs.conf"), $nfsSetting) === FALSE;
     }
-    else {
-      $collection->addTask(
-        $this->taskFilesystemStack()
-          ->touch("$root/setup/docker/nfs.conf")
-      );
-    }
-    if (strpos(file_get_contents("$root/setup/docker/nfs.conf"), $nfsSetting) === FALSE) {
+    $needsNfsConfig = !($nfsConfigExists && $nfsConfigPresent);
+    if ($needsNfsConfig) {
+      if ($nfsConfigExists) {
+        $collection->addTask(
+          $this->taskFilesystemStack()
+            ->copy('/etc/nfs.conf', "$root/setup/docker/nfs.conf")
+        );
+      }
+      else {
+        $collection->addTask(
+          $this->taskFilesystemStack()
+            ->touch("$root/setup/docker/nfs.conf")
+        );
+      }
+      // $nfsConfigPresent is false if we are here.
       $collection->addTask(
         $this->taskWriteToFile("$root/setup/docker/nfs.conf")
           ->append(TRUE)
@@ -421,28 +445,33 @@ class DockerCommands extends Tasks {
       );
     }
     else {
-      $this->io()->note('Ballast NFS setting is already present in /etc/nfs.conf');
-      $collection->addTask(
-        $this->taskFilesystemStack()->remove("$root/setup/docker/nfs.conf")
-      );
+      $this->io()
+        ->note('Ballast NFS setting is already present in /etc/nfs.conf');
     }
     // Export the given folder/directory.
     $user = getmyuid();
     $group = getmygid();
+    $exportConfigPresent = FALSE;
     $export = "$folderPath -alldirs -mapall=$user:$group localhost";
-    if (file_exists('/etc/exports')) {
-      $collection->addTask(
-        $this->taskFilesystemStack()
-          ->copy('/etc/exports', "$root/setup/docker/exports")
-      );
+    $exportFileExists = file_exists('/etc/exports');
+    if ($exportFileExists) {
+      $exportConfigPresent = !strpos(file_get_contents("/etc/exports"), $folderPath) === FALSE;
     }
-    else {
-      $collection->addTask(
-        $this->taskFilesystemStack()
-          ->touch("$root/setup/docker/exports")
-      );
-    }
-    if (strpos(file_get_contents("$root/setup/docker/exports"), $folderPath) === FALSE) {
+    $needsExportConfig = !($exportFileExists && $exportConfigPresent);
+    if ($needsExportConfig) {
+      if ($exportFileExists) {
+        $collection->addTask(
+          $this->taskFilesystemStack()
+            ->copy('/etc/exports', "$root/setup/docker/exports")
+        );
+      }
+      else {
+        $collection->addTask(
+          $this->taskFilesystemStack()
+            ->touch("$root/setup/docker/exports")
+        );
+      }
+      // $exportConfigPresent is false if we are here.
       $collection->addTask(
         $this->taskWriteToFile("$root/setup/docker/exports")
           ->append(TRUE)
@@ -458,9 +487,6 @@ class DockerCommands extends Tasks {
     }
     else {
       $this->io()->note("$folderPath is already present in /etc/exports");
-      $collection->addTask(
-        $this->taskFilesystemStack()->remove("$root/setup/docker/exports")
-      );
     }
     return $collection->run();
   }

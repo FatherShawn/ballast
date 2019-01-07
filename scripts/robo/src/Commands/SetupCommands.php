@@ -42,11 +42,9 @@ class SetupCommands extends Tasks {
         $this->io()
           ->note('All the docker projects need to be in the same parent folder.  Because of the nature of NFS, this folder cannot contain any older vagrant based projects. If needed, create a directory and move this project before continuing.');
         $this->io()
-          ->text('To finish setting up Ballast for the first time and launch this Drupal site, use the following commands:');
+          ->text('To finish setting up Ballast for the first time and launch this Drupal site, use the following command:');
         $this->io()->listing([
-          'ahoy harbor',
           'ahoy cast-off',
-          'ahoy rebuild',
         ]);
         $this->io()->newLine();
         $this->io()
@@ -56,7 +54,7 @@ class SetupCommands extends Tasks {
         $this->io()->listing([
           'ahoy cast-off (Only needed once after starting up your Mac.)',
           'ahoy launch (`ahoy cast-off` will call this for you)',
-          'ahoy rebuild',
+          'ahoy rebuild (If your site is configured to pull a database via a drush alias.)',
         ]);
         break;
 
@@ -258,9 +256,6 @@ class SetupCommands extends Tasks {
     }
     if ((isset($result) && $result instanceof Result && $result->wasSuccessful())) {
       $this->io->success("Prerequisites prepared for Ballast.");
-      if (isset($required['docker'])) {
-        $this->io()->confirm('Docker for Mac has been downloaded for you.  Mac security requirements usually require downloaded apps to be approved on first open.  Please confirm that you have opened and approved the Docker application.');
-      }
     }
     elseif (count($required) == 0) {
       $this->io->success("Your Mac was already prepared for Ballast.");

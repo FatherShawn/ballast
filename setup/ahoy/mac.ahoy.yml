@@ -28,11 +28,6 @@ commands:
     cmd: |
       php scripts/robo/BallastRunner.php boot && #make sure boot is successful
       php scripts/robo/BallastRunner.php "boot:dns"
-  harbor:
-    usage: Build the harbor for your docks.  Run this command once after the first time you `composer install` a dp-docker project.
-    cmd: |
-      php scripts/robo/BallastRunner.php "docker:initialize" &&
-      php scripts/robo/BallastRunner.php "docker:proxy-create"
   launch:
     usage: Launch this project site.
     cmd: php scripts/robo/BallastRunner.php docker:compose
