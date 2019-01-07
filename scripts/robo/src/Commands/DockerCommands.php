@@ -24,22 +24,6 @@ class DockerCommands extends Tasks {
   protected $config;
 
   /**
-   * Routes to a machine specific http proxy function.
-   */
-  public function dockerProxyCreate() {
-    $this->setConfig();
-    switch (php_uname('s')) {
-      case 'Darwin':
-        $this->setDnsProxyMac();
-        break;
-
-      default:
-        $this->io()
-          ->error("Unable to determine your operating system.  Manual dns boot will be required.");
-    }
-  }
-
-  /**
    * Entry point command to launch the docker-compose process.
    *
    * Routes to a machine specific compose function.
@@ -171,6 +155,9 @@ class DockerCommands extends Tasks {
     if (!$this->isDockerRunning()) {
       $dockerResult = $this->taskExec('open -a Docker')
         ->printOutput(FALSE);
+      if ($dockerResult instanceof Result && $dockerResult->wasSuccessful()) {
+        $this->setDnsProxyMac();
+      }
       $nfsResult = $this->setMacNfsConfig();
       if (
         $dockerResult instanceof Result
@@ -181,7 +168,8 @@ class DockerCommands extends Tasks {
         $this->io()->success('Ballast is ready to host projects.');
       }
       else {
-        $this->io()->error('Either Docker did not start or NFS setup check failed.');
+        $this->io()
+          ->error('Either Docker did not start or NFS setup check failed.');
       }
     }
     else {
@@ -218,6 +206,32 @@ class DockerCommands extends Tasks {
   }
 
   /**
+   * Helper function that checks for the existance of proxynet.
+   *
+   * @return bool
+   *   The docker network proxynet exists.
+   */
+  protected function getProxyConfigured() {
+    $proxynetFound = FALSE;
+    $result = $this->taskExec("docker network inspect proxynet")
+      ->printOutput(FALSE)
+      ->printMetadata(FALSE)
+      ->run();
+    if ($result instanceof Result && $result->wasSuccessful()) {
+      $inspection = json_decode($result->getMessage(), 'assoc');
+      if (!empty($inspection) && is_array($inspection)) {
+        foreach ($inspection as $network) {
+          if (isset($network['Name']) && $network['Name'] == 'proxynet') {
+            // The network exists.
+            $proxynetFound = TRUE;
+          }
+        }
+      }
+    }
+    return $proxynetFound;
+  }
+
+  /**
    * Setup the http-proxy service with dns for macOS.
    *
    * @see https://hub.docker.com/r/jwilder/nginx-proxy/
@@ -225,6 +239,11 @@ class DockerCommands extends Tasks {
   protected function setDnsProxyMac() {
     $this->setConfig();
     if ($this->isDockerRunning()) {
+      if ($this->getProxyConfigured()) {
+        $this->io()
+          ->note('HTTP Proxy network found. HTTP Proxy and .dpulp domain resolution previously created.');
+        return;
+      }
       $this->io()->title('Setup HTTP Proxy and .dpulp domain resolution.');
       // Boot the DNS service.
       $boot_task = $this->collectionBuilder();
@@ -355,17 +374,11 @@ class DockerCommands extends Tasks {
       ->printMetadata(FALSE)
       ->run();
     if (!$isInstalled->wasSuccessful()) {
-      $justInstalled = $this->io()->confirm('The docker command was not found.  Was Docker for Mac just installed');
+      $justInstalled = $this->io()
+        ->confirm('The docker command was not found.  Was Docker for Mac just installed');
       if ($justInstalled) {
-        $installed = $this->io()->confirm('Docker for Mac needs to be launched the first time from the Finder. Enter "yes" once you have launched Docker for Mac for the first time', FALSE);
-        if ($installed) {
-          $this->setDnsProxyMac();
-          $nfsPrepared = $this->setMacNfsConfig();
-          if (!$nfsPrepared->wasSuccessful()) {
-            $this->io()->error('NFS setup failed.');
-            return $nfsPrepared->wasSuccessful();
-          }
-        }
+        $this->io()
+          ->confirm('Docker for Mac needs to be launched the first time from the Finder. Enter "yes" once you have launched Docker for Mac for the first time', FALSE);
       }
       else {
         $this->io()->error('The docker command could not be found.');
@@ -449,7 +462,7 @@ class DockerCommands extends Tasks {
     }
     else {
       $this->io()
-        ->note('Ballast NFS setting is already present in /etc/nfs.conf');
+        ->note('Ballast NFS is already setup.');
     }
     // Export the given folder/directory.
     $user = getmyuid();
