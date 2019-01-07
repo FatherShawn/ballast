@@ -427,7 +427,13 @@ class DockerCommands extends Tasks {
           ->copy('/etc/exports', "$root/setup/docker/exports")
       );
     }
-    if (strpos(file_get_contents('/etc/exports'), $folderPath) === FALSE) {
+    else {
+      $collection->addTask(
+        $this->taskFilesystemStack()
+          ->touch("$root/setup/docker/exports")
+      );
+    }
+    if (strpos(file_get_contents("$root/setup/docker/exports"), $folderPath) === FALSE) {
       $collection->addTask(
         $this->taskWriteToFile("$root/setup/docker/exports")
           ->append(TRUE)
