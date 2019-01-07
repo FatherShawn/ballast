@@ -258,6 +258,9 @@ class SetupCommands extends Tasks {
     }
     if ((isset($result) && $result instanceof Result && $result->wasSuccessful())) {
       $this->io->success("Prerequisites prepared for Ballast.");
+      if (isset($required['docker'])) {
+        $this->io()->confirm('Docker for Mac has been downloaded for you.  Mac security requirements usually require downloaded apps to be approved on first open.  Please confirm that you have opened and approved the Docker application.');
+      }
     }
     elseif (count($required) == 0) {
       $this->io->success("Your Mac was already prepared for Ballast.");
