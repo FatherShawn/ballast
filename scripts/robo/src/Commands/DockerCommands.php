@@ -169,15 +169,9 @@ class DockerCommands extends Tasks {
     // Boot the Docker Machine.
     $this->io()->title('Ballast Startup');
     if (!$this->isDockerRunning()) {
-      $root = $this->config->getProjectRoot();
-      // Set the default to the parent of the project folder.
-      $dir = dirname($root);
-      $folder = $this->io()
-        ->ask('What is the path to your docker sites folder?',
-          $dir);
       $dockerResult = $this->taskExec('open -a Docker')
         ->printOutput(FALSE);
-      $nfsResult = $this->setMacNfsConfig($folder);
+      $nfsResult = $this->setMacNfsConfig();
       if (
         $dockerResult instanceof Result
         && $nfsResult instanceof Result
@@ -185,6 +179,9 @@ class DockerCommands extends Tasks {
         && $nfsResult->wasSuccessful()
       ) {
         $this->io()->success('Ballast is ready to host projects.');
+      }
+      else {
+        $this->io()->error('Either Docker did not start or NFS setup check failed.');
       }
     }
     else {
@@ -363,6 +360,11 @@ class DockerCommands extends Tasks {
         $installed = $this->io()->confirm('Docker for Mac needs to be launched the first time from the Finder. Enter "yes" once you have launched Docker for Mac for the first time', FALSE);
         if ($installed) {
           $this->setDnsProxyMac();
+          $nfsPrepared = $this->setMacNfsConfig();
+          if (!$nfsPrepared->wasSuccessful()) {
+            $this->io()->error('NFS setup failed.');
+            return $nfsPrepared->wasSuccessful();
+          }
         }
       }
       else {
@@ -399,15 +401,16 @@ class DockerCommands extends Tasks {
   /**
    * Helper method to configure mac NFS.
    *
-   * @param string $folderPath
-   *   The path to the folder to be exported by NFS.
-   *
    * @return \Robo\Result
-   *   The result of the config tasks.
+   *   The result of the NFS tasks.
    */
-  protected function setMacNfsConfig($folderPath) {
-    $this->setConfig();
+  protected function setMacNfsConfig() {
     $root = $this->config->getProjectRoot();
+    // Set the default to the parent of the project folder.
+    $dir = dirname($root);
+    $folderPath = $this->io()
+      ->ask('What is the path to your docker sites folder?',
+        $dir);
     $collection = $this->collectionBuilder();
     $nfsConfigPresent = FALSE;
     // Configure global nfs options.
