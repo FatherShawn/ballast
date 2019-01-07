@@ -396,7 +396,7 @@ class DockerCommands extends Tasks {
     if (file_exists('/etc/nfs.conf')) {
       $collection->addTask(
         $this->taskFilesystemStack()
-          ->copy('/etc/nfs.conf', "$root/setup/docker/")
+          ->copy('/etc/nfs.conf', "$root/setup/docker/nfs.conf")
       );
       $collection->addTask(
         $this->taskWriteToFile("$root/setup/docker/nfs.conf")
@@ -414,7 +414,7 @@ class DockerCommands extends Tasks {
     }
     $collection->addTask(
       $this->taskExecStack()
-        ->exec("sudo mv $root/setup/docker/nfs.conf /etc")
+        ->exec("sudo mv $root/setup/docker/nfs.conf /etc/nfs.conf")
         ->exec('sudo chown root:wheel /etc/nfs.conf')
     );
     // Export the given folder/directory.
@@ -424,7 +424,7 @@ class DockerCommands extends Tasks {
     if (file_exists('/etc/exports')) {
       $collection->addTask(
         $this->taskFilesystemStack()
-          ->copy('/etc/exports', "$root/setup/docker/")
+          ->copy('/etc/exports', "$root/setup/docker/exports")
       );
     }
     if (strpos(file_get_contents('/etc/exports'), $folderPath) === FALSE) {
@@ -437,7 +437,7 @@ class DockerCommands extends Tasks {
       );
       $collection->addTask(
         $this->taskExecStack()
-          ->exec("sudo mv $root/setup/docker/exports /etc")
+          ->exec("sudo mv $root/setup/docker/exports /etc/exports")
           ->exec('sudo chown root:wheel /etc/exports')
       );
     }
