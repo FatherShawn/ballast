@@ -192,7 +192,7 @@ class SetupCommands extends Tasks {
     $this->setConfig();
     $home = getenv('HOME');
     $this->io()->title('Mac Setup for Ballast');
-    if (!file_exists("$home/.docker/machine/machines/dp-docker")) {
+    if (file_exists("$home/.docker/machine/machines/dp-docker")) {
       $removeDockerMachine = $this->io()->confirm('Ballast 1.0 docker machine detected.  Remove and upgrade to Ballast 1.1', FALSE);
       if ($removeDockerMachine) {
         $this->io()->warning('All sites will have to be re-installed, or rebuilt from a remote.  The upgrade will destroy all persistent container data including databases.');
