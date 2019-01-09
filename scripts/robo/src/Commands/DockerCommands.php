@@ -70,6 +70,24 @@ class DockerCommands extends Tasks {
   }
 
   /**
+   * Prepare this Mac to move from Ballast 1.0 to 1.1 (Docker for Mac).
+   */
+  public function macConvert() {
+    $home = getenv('HOME');
+    if (file_exists("$home/.docker/machine/machines/dp-docker")) {
+      $removeDockerMachine = $this->io()->confirm('Ballast 1.0 docker machine detected.  Remove and upgrade to Ballast 1.1', FALSE);
+      if ($removeDockerMachine) {
+        $this->io()->warning('All sites will have to be re-installed, or rebuilt from a remote.  The upgrade will destroy all persistent container data including databases.');
+        $confirmed = $this->io()->confirm('I understand and am ready to upgrade.', FALSE);
+        if ($confirmed) {
+          $this->setDockerMachineRemoved();
+        }
+        $this->io()->note('If the conversion ran without issue, run `composer install` now to get Docker for Mac.  If you have Docker for Mac, open it and verify that it has installed `docker` and `docker-compose` commands.');
+      }
+    }
+  }
+
+  /**
    * Entry point command for the boot process.
    *
    * Routes to a machine specific boot function.
@@ -142,6 +160,69 @@ class DockerCommands extends Tasks {
   protected function setConfig() {
     if (!$this->config instanceof Config) {
       $this->config = new Config();
+    }
+  }
+
+  /**
+   * Gets the packages installed using Homebrew.
+   *
+   * Duplicate code from SetupCommands.  Remove in next version.
+   *
+   * @return array
+   *   Associative array keyed by package short name.
+   */
+  protected function getBrewedComponents() {
+    $this->io()->comment('Getting the packages installed with Homebrew');
+    $result = $this->taskExec('brew info --json=v1 --installed')
+      ->printOutput(FALSE)
+      ->printMetadata(FALSE)
+      ->run();
+    $this->io()->newLine();
+    if ($result instanceof Result) {
+      $rawJson = json_decode($result->getMessage(), 'assoc');
+      $parsed = [];
+      foreach ($rawJson as $package) {
+        $parsed[$package['name']] = $package;
+        unset($parsed[$package['name']]['name']);
+      }
+      return $parsed;
+    }
+    throw new UnexpectedValueException("taskExec() failed to return a valid Result object in getBrewedComponents()");
+  }
+
+  /**
+   * Helper function to remove outdated docker-machine.
+   *
+   * Remove in next version.
+   */
+  protected function setDockerMachineRemoved() {
+    $home = getenv('HOME');
+    $directory = "$home/.docker/machine/machines/dp-docker";
+    $remove = [
+      'docker',
+      'docker-compose',
+      'docker-machine',
+    ];
+    $brewed = $this->getBrewedComponents();
+    $removeList = [];
+    foreach ($remove as $package) {
+      if (isset($brewed[$package])) {
+        // Installed.
+        $removeList[] = $package;
+      }
+    }
+    $removeList = implode(' ', $removeList);
+    $this->io()->text("The following packages need to be unistalled: $removeList");
+    $removed = $this->taskExec("brew uninstall $removeList")
+      ->printOutput(FALSE)
+      ->printMetadata(FALSE)
+      ->run();
+    if ($removed instanceof Result && $removed->wasSuccessful()) {
+      $this->io()->success('Packages are uninstalled.');
+    }
+    $deleteMachine = $this->taskDeleteDir($directory)->run();
+    if ($deleteMachine instanceof Result && $deleteMachine->wasSuccessful()) {
+      $this->io()->success('dp-docker machine data is removed.');
     }
   }
 
