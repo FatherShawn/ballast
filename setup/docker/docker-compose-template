@@ -19,7 +19,7 @@ services:
     # image: digitalpulp/php:7.2-alpine-fpm-1.0.0
     image: digitalpulp/php:7.1-alpine-fpm-1.0.6
     volumes:
-      - .:/var/www
+      - ballast:/var/www
     working_dir: /var/www/docroot/
     networks:
       - internal
@@ -32,7 +32,7 @@ services:
       - database
       - php
     volumes:
-      - .:/var/www
+      - ballast:/var/www
     working_dir: /var/www/docroot/
     environment:
       VIRTUAL_HOST: {site_shortname}.dpulp
@@ -48,7 +48,7 @@ services:
     depends_on:
       - web
     volumes:
-      - .:/var/www
+      - ballast:/var/www
     networks:
       - internal
     working_dir: /var/www/docroot/themes/custom/{site_theme_name}
@@ -59,7 +59,7 @@ services:
       - php
       - web
     volumes:
-      - .:/var/www
+      - ballast:/var/www
     working_dir: /var/www/docroot/
     networks:
       - internal
@@ -74,6 +74,12 @@ services:
 #      - internal
 volumes:
   db:
+  ballast:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=host.docker.internal,rw,nolock,hard,nointr,nfsvers=3
+      device: ":{project_root}"
 networks:
   internal:
   proxy:

@@ -351,6 +351,11 @@ class DockerCommands extends Tasks {
         ->from('{site_theme_name}')
         ->to($this->config->get('site_theme_name'))
     );
+    $collection->addTask(
+      $this->taskReplaceInFile("$root/setup/docker/docker-compose.yml")
+        ->from('{project_root}')
+        ->to($root)
+    );
     // Move into place or overwrite the docker-compose.yml.
     $collection->addTask(
       $this->taskFilesystemStack()
