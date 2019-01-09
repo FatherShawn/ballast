@@ -235,12 +235,13 @@ class DockerCommands extends Tasks {
     $this->io()->title('Ballast Startup');
     if (!$this->isDockerRunning()) {
       $dockerResult = $this->taskExec('open -a Docker')
-        ->printOutput(FALSE);
+        ->printOutput(TRUE);
       if ($dockerResult instanceof Result && $dockerResult->wasSuccessful()) {
         $this->setDnsProxyMac();
       }
       else {
         $this->io()->error('Unable to start Docker for Mac');
+        return;
       }
       $nfsResult = $this->setMacNfsConfig();
       if (
