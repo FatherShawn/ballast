@@ -26,7 +26,7 @@ commands:
       php scripts/robo/BallastRunner.php "boot:dns"
   convert:
     usage: Converts the Mac from Ballast 1.0 to Ballast 1.1
-    cmd: php scripts/robo/BallastRunner.php "docker:convert"
+    cmd: php scripts/robo/BallastRunner.php "mac:convert"
   launch:
     usage: Launch this project site.
     cmd: php scripts/robo/BallastRunner.php docker:compose

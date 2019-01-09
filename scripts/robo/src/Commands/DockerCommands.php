@@ -239,6 +239,9 @@ class DockerCommands extends Tasks {
       if ($dockerResult instanceof Result && $dockerResult->wasSuccessful()) {
         $this->setDnsProxyMac();
       }
+      else {
+        $this->io()->error('Unable to start Docker for Mac');
+      }
       $nfsResult = $this->setMacNfsConfig();
       if (
         $dockerResult instanceof Result
@@ -250,7 +253,7 @@ class DockerCommands extends Tasks {
       }
       else {
         $this->io()
-          ->error('Either Docker did not start or NFS setup check failed.');
+          ->error('NFS setup check failed.');
       }
     }
     else {
