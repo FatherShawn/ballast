@@ -64,7 +64,7 @@ services:
     networks:
       - internal
     environment:
-      XDEBUG_HOST: {host_ip}
+      XDEBUG_HOST: host.docker.internal
       PHP_IDE_CONFIG: serverName={site_shortname}.dpulp
 #  solr:
 #    image: wodby/drupal-solr:8-5.5-2.3.0
