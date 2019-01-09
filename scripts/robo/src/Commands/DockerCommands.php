@@ -82,7 +82,7 @@ class DockerCommands extends Tasks {
         if ($confirmed) {
           $this->setDockerMachineRemoved();
         }
-        $this->io()->note('If the conversion ran without issue, run `composer install` now to get Docker for Mac.  If you have Docker for Mac, open it and verify that it has installed `docker` and `docker-compose` commands.');
+        $this->io()->note('If the conversion ran without issue, run `composer install` now to get Docker for Mac.  If you already have Docker for Mac, open it and verify that it has installed `docker` and `docker-compose` commands.');
       }
     }
   }
